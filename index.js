@@ -98,7 +98,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
 
         await setUpNuget(thisOwner, packagePushToken);
 
-        const existingPackages = [];//await getExistingPackages(thisOwner, thisRepo, packagePushToken);
+        const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
         var thresholdDate = new Date();
         thresholdDate.setHours(thresholdDate.getHours() - 1);
