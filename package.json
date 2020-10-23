@@ -1,0 +1,24 @@
+{
+  "name": "check-and-republish-packages",
+  "version": "1.0.0",
+  "description": "Scans other repos, potentially in other orgs, for workflows which ran the request-republish-package step on permitted branches. Downloads their Artifacts, checks that hashes are as expected and republishes them as GitHub packages.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/G-Research-Packages/check-and-republish-packages.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/G-Research-Packages/check-and-republish-packages/issues"
+  },
+  "homepage": "https://github.com/G-Research-Packages/check-and-republish-packages#readme",
+  "dependencies": {
+    "@actions/core": "^1.2.4",
+    "@actions/github": "^3.0.0"
+  }
+}

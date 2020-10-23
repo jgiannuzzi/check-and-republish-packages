@@ -1,0 +1,18 @@
+name: 'check-and-republish-packages'
+description: 'Scans other repos, potentially in other orgs, for workflows which ran the request-republish-package step on permitted branches. Downloads their Artifacts, checks that hashes are as expected and republishes them as GitHub packages.'
+inputs:
+  source-owner:
+    description: 'The GitHub owner (organisation or individual) of the repos to scan.'
+    required: true
+  source-repo-workflow-branches:
+    description: 'A comma-separated list of repo/workflow/branch combinations to search for artifact-producing workflow runs.'
+    required: true
+  source-token:
+    description: 'A GitHub auth token which has access to read workflow information, including logs and artifacts, from the source owner and repo(s).'
+    required: true
+  package-push-token:
+    description: 'A GitHub auth token which has access to list and upload packages to the repo where this action is running.'
+    required: true
+runs:
+  using: 'node12'
+  main: 'index.js'
