@@ -18,7 +18,7 @@ async function setUpNuget(thisOwner, packagePushToken) {
     </packageSources>
     <packageSourceCredentials>
         <github>
-            <add key="Username" value="${thisOwner}" />
+            <add key="Username" value="svc-gh-packagemanager" />
             <add key="ClearTextPassword" value="${packagePushToken}" />
         </github>
     </packageSourceCredentials>
