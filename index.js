@@ -80,18 +80,8 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     await fs.writeFile('extracted_nupkg/' + nuspecFilename, lines.join('\n'));
     await exec('zip -j ' + packageName + ' extracted_nupkg/' + nuspecFilename);
 
-    await exec('cat nuget.config', function(err, stdout, stderr) { 
-        console.log(err);
-        console.log(stderr);
-        console.log(stdout); 
-    });
-
     console.log('- Uploading NuGet package to https://github.com/' + thisOwner);
-    await exec('dotnet nuget push ' + packageName + ' --source "github"', function(err, stdout, stderr) { 
-        console.log(err);
-        console.log(stderr);
-        console.log(stdout); 
-    });
+    await exec('dotnet nuget push ' + packageName + ' --source "github"');
     console.log('- Uploaded ' + packageName);
 }
 
