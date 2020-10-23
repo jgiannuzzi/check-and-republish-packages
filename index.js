@@ -23,7 +23,6 @@ async function setUpNuget(thisOwner, packagePushToken) {
         </github>
     </packageSourceCredentials>
 </configuration>`);
-    console.log("setUpNuget " + thisOwner + ' ' + packagePushToken);
 }
 
 async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
@@ -55,7 +54,7 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
     return existingPackages;
 }
 
-async function uploadNugetPackage(thisOwner, thisRepo, packageName, packagePushToken) {
+async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     console.log('- Unpacking NuGet package');
     await exec('unzip ' + packageName + ' -d extracted_nupkg');
 
@@ -80,15 +79,6 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName, packagePushT
     }
     await fs.writeFile('extracted_nupkg/' + nuspecFilename, lines.join('\n'));
     await exec('zip -j ' + packageName + ' extracted_nupkg/' + nuspecFilename);
-
-    await setUpNuget(thisOwner, packagePushToken);
-
-    await exec('dotnet nuget list source', function(err, stdout, stderr) {
-        console.log(err);
-        console.log(stdout);
-        console.log(stderr);
-    });
-    console.log("Continued here");
 
     console.log('- Uploading NuGet package to https://github.com/' + thisOwner);
     await exec('dotnet nuget push ' + packageName + ' --source "github"');
@@ -185,7 +175,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName, packagePushT
                         
                         console.log(package.name + ' [' + package.sha + ']: Downloaded artifact, SHA256 matches, republishing:');
                         if (package.name.endsWith('.nupkg')) {
-                            await uploadNugetPackage(thisOwner, thisRepo, package.name, packagePushToken);
+                            await uploadNugetPackage(thisOwner, thisRepo, package.name);
                         } else {
                             core.setFailed('Currently only Nuget packages are supported');
                         }
