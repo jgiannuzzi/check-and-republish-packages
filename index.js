@@ -18,7 +18,7 @@ async function setUpNuget(thisOwner, packagePushToken) {
     </packageSources>
     <packageSourceCredentials>
         <github>
-            <add key="Username" value="djn24" />
+            <add key="Username" value="${thisOwner}" />
             <add key="ClearTextPassword" value="${packagePushToken}" />
         </github>
     </packageSourceCredentials>
@@ -98,7 +98,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
 
         await setUpNuget(thisOwner, packagePushToken);
 
-        const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
+        const existingPackages = [];//await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
         var thresholdDate = new Date();
         thresholdDate.setHours(thresholdDate.getHours() - 1);
