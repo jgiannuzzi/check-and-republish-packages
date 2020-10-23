@@ -56,18 +56,19 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
 
 async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     console.log('- Unpacking NuGet package');
-    await exec('unzip ' + packageName + ' -d extracted_nupkg');
+    const extractedDir = packageName + '.extracted';
+    await exec('unzip ' + packageName + ' -d ' + extractedDir);
 
-    const filesInPackage = await fs.readdir('extracted_nupkg');
+    const filesInPackage = await fs.readdir(extractedDir);
     const nuspecFilename = filesInPackage.find(filename => filename.endsWith('nuspec'));
     if (!nuspecFilename) {
-        core.setFailed('Couldn\'t find .nuspec file in NuGet package');
+        core.setFailed('Couldn\'t find .nuspec file in Nuget package');
         return;
     }
     
     console.log('- Updating ' + nuspecFilename + ' to reference this repository (required for GitHub package upload to succeed)');
-    await exec('chmod 700 extracted_nupkg/' + nuspecFilename);
-    const lines = (await fs.readFile('extracted_nupkg/' + nuspecFilename)).toString('utf-8').split('\n');
+    await exec('chmod 700 ' + extractedDir + '/' + nuspecFilename);
+    const lines = (await fs.readFile(extractedDir + '/' + nuspecFilename)).toString('utf-8').split('\n');
     for (let i = 0; i < lines.length; i++) {
         const newLine = lines[i].replace(/repository url="[^"]*"/, 'repository url="https://github.com/' + thisOwner + '/' + thisRepo + '"');
         if (newLine != lines[i]) {
@@ -77,8 +78,8 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
             console.log('- ' + lines[i]);
         }
     }
-    await fs.writeFile('extracted_nupkg/' + nuspecFilename, lines.join('\n'));
-    await exec('zip -j ' + packageName + ' extracted_nupkg/' + nuspecFilename);
+    await fs.writeFile(extractedDir + '/' + nuspecFilename, lines.join('\n'));
+    await exec('zip -j ' + packageName + ' ' + extractedDir + '/' + nuspecFilename);
 
     console.log('- Uploading NuGet package to https://github.com/' + thisOwner);
     await exec('dotnet nuget push ' + packageName + ' --source "github"');
