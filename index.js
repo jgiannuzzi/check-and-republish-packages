@@ -83,6 +83,13 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName, packagePushT
 
     await setUpNuget(thisOwner, packagePushToken);
 
+    await exec('dotnet nuget list source', function(err, stdout, stderr) {
+        console.log(err);
+        console.log(stdout);
+        console.log(stderr);
+    });
+    console.log("Continued here");
+
     console.log('- Uploading NuGet package to https://github.com/' + thisOwner);
     await exec('dotnet nuget push ' + packageName + ' --source "github"');
     console.log('- Uploaded ' + packageName);
