@@ -120,7 +120,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
         var thresholdDate = new Date();
-        thresholdDate.setHours(thresholdDate.getHours() - 1);
+        thresholdDate.setHours(thresholdDate.getHours() - 6);
 
         for (sourceRepoWorkflowBranch of sourceRepoWorkflowBranches) {
             const parts = sourceRepoWorkflowBranch.split('/');
@@ -134,6 +134,11 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
 
             console.log('Looking for workflows named "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
+
+            for (w of workflows) {
+                console.log('found workflow' + w)
+            }
+
             const workflow = workflows.find(workflow => workflow.name == workflowName);
             if (!workflow) {
                 core.setFailed('Failed to find workflow "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
