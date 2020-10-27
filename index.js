@@ -4,6 +4,7 @@ const {graphql} = require('@octokit/graphql');
 const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
+const githubPackageManagerUsername = 'svc-gh-packagemanager'
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -18,11 +19,17 @@ async function setUpNuget(thisOwner, packagePushToken) {
     </packageSources>
     <packageSourceCredentials>
         <github>
-            <add key="Username" value="svc-gh-packagemanager" />
+            <add key="Username" value="${githubPackageManagerUsername}" />
             <add key="ClearTextPassword" value="${packagePushToken}" />
         </github>
     </packageSourceCredentials>
 </configuration>`);
+}
+
+async function setUpDocker(thisOwner, packagePushToken) {
+    const passwordFilename = 'docker.password'
+    await fs.writeFile(passwordFilename, packagePushToken);
+    await exec('cat ' + passwordFilename + ' | docker login ghcr.io --username ' + githubPackageManagerUsername + ' --password-stdin');
 }
 
 async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
@@ -86,6 +93,16 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     console.log('- Uploaded ' + packageName);
 }
 
+async function uploadDockerImage(thisOwner, thisRepo, packageName) {
+    const tag = 'ghcr.io/G-Research/' + packageName.replace('.docker.tar.gz', '').replace('_', ':');
+
+    console.log('- Docker load image ' + packageName + ' with tag ' + tag);
+    await exec('gunzip ' + packageName + ' | docker load ' + tag);
+
+    console.log('- Push docker image ' + tag);
+    await exec('docker push ' + tag);
+}
+
 (async () => {
     try {
         const sourceOwner = core.getInput('source-owner');
@@ -98,6 +115,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
         const octokit = github.getOctokit(sourceToken);
 
         await setUpNuget(thisOwner, packagePushToken);
+	await setUpDocker(thisOwner, packagePushToken);
 
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
@@ -177,8 +195,10 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
                         console.log(package.name + ' [' + package.sha + ']: Downloaded artifact, SHA256 matches, republishing:');
                         if (package.name.endsWith('.nupkg')) {
                             await uploadNugetPackage(thisOwner, thisRepo, package.name);
+                        } else if (package.name.endsWith('.docker.tar.gz')) {
+                            await uploadDockerImage(thisOwner, thisRepo, package.name);
                         } else {
-                            core.setFailed('Currently only Nuget packages are supported');
+                            core.setFailed('Package type not currently supported');
                         }
                     }
                 }
