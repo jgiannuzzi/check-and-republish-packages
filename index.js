@@ -4,13 +4,12 @@ const {graphql} = require('@octokit/graphql');
 const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
-const githubPackageManagerUsername = 'svc-gh-packagemanager'
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function setUpNuget(thisOwner, packagePushToken) {
+async function setUpNuget(thisOwner, packagePushUser, packagePushToken) {
     await fs.writeFile('nuget.config', `<?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <packageSources>
@@ -19,17 +18,17 @@ async function setUpNuget(thisOwner, packagePushToken) {
     </packageSources>
     <packageSourceCredentials>
         <github>
-            <add key="Username" value="${githubPackageManagerUsername}" />
+            <add key="Username" value="${packagePushUser}" />
             <add key="ClearTextPassword" value="${packagePushToken}" />
         </github>
     </packageSourceCredentials>
 </configuration>`);
 }
 
-async function setUpDocker(thisOwner, packagePushToken) {
+async function setUpDocker(thisOwner, packagePushUser, packagePushToken) {
     const passwordFilename = 'docker.password'
     await fs.writeFile(passwordFilename, packagePushToken);
-    await exec('cat ' + passwordFilename + ' | docker login ghcr.io --username ' + githubPackageManagerUsername + ' --password-stdin');
+    await exec('cat ' + passwordFilename + ' | docker login ghcr.io --username ' + packagePushUser + ' --password-stdin');
 }
 
 async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
@@ -108,14 +107,15 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         const sourceOwner = core.getInput('source-owner');
         const sourceRepoWorkflowBranches = core.getInput('source-repo-workflow-branches').split(',').map(b => b.trim());
         const sourceToken = core.getInput('source-token');
+        const packagePushUser = core.getInput('package-push-user') || 'svc-gh-packagemanager';
         const packagePushToken = core.getInput('package-push-token');
         const thisOwner = process.env['GITHUB_REPOSITORY'].split('/')[0];
         const thisRepo = process.env['GITHUB_REPOSITORY'].split('/')[1];
 
         const octokit = github.getOctokit(sourceToken);
 
-        await setUpNuget(thisOwner, packagePushToken);
-	await setUpDocker(thisOwner, packagePushToken);
+        await setUpNuget(thisOwner, packagePushUser, packagePushToken);
+        await setUpDocker(thisOwner, packagePushUser, packagePushToken);
 
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
