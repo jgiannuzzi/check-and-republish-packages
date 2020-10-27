@@ -136,7 +136,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
 
             for (w of workflows) {
-                console.log('found workflow' + w.name)
+                console.log('found workflow ' + w.name)
             }
 
             const workflow = workflows.find(workflow => workflow.name == workflowName);
@@ -148,8 +148,9 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
 
             console.log('Looking for runs of that workflow on branch ' + permittedBranch + ' updated after ' + thresholdDate.toISOString());
             const {data: {workflow_runs: workflowRuns}} = await octokit.actions.listWorkflowRuns({owner: sourceOwner, repo: sourceRepo, workflow_id: workflow.id, branch: permittedBranch});
+            console.log('Found ' + workflowRuns.length + ' workflow run(s)');
             const recentWorkflowRuns = workflowRuns.filter(workflowRun => new Date(workflowRun.updated_at).getTime() > thresholdDate.getTime());
-            console.log('Found ' + recentWorkflowRuns.length + ' workflow run(s)');
+            console.log('Found ' + recentWorkflowRuns.length + ' recent workflow run(s)');
 
             for (workflowRun of recentWorkflowRuns) {
                 console.log('Checking workflow run number ' + workflowRun.run_number + ' (updated at ' + workflowRun.updated_at + ')');
