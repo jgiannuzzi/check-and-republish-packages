@@ -5,6 +5,8 @@ const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 
+const dockerHost = 'docker.pkg.github.com'
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -28,7 +30,7 @@ async function setUpNuget(thisOwner, packagePushUser, packagePushToken) {
 async function setUpDocker(thisOwner, packagePushUser, packagePushToken) {
     const passwordFilename = 'docker.password'
     await fs.writeFile(passwordFilename, packagePushToken);
-    await exec('cat ' + passwordFilename + ' | docker login ghcr.io --username ' + packagePushUser + ' --password-stdin');
+    await exec('cat ' + passwordFilename + ' | docker login ' + dockerHost + ' --username ' + packagePushUser + ' --password-stdin');
 }
 
 async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
@@ -54,6 +56,8 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
         for (versionNode of packageNode.versions.nodes) {
             if (packageNode.packageType == 'NUGET') {
                 existingPackages.push(packageNode.name + '.' + versionNode.version + '.nupkg');
+            } else {
+                existingPackages.push(packageNode.name);
             }
         }
     }
@@ -93,13 +97,17 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
 }
 
 async function uploadDockerImage(thisOwner, thisRepo, packageName) {
-    const tag = 'ghcr.io/G-Research/' + packageName.replace('.docker.tar.gz', '').replace('_', ':');
+    console.log('- Uploading docker image from ' + packageName);
 
-    console.log('- Docker load image ' + packageName + ' with tag ' + tag);
-    await exec('gunzip ' + packageName + ' | docker load ' + tag);
+    const repoTagGuessedFromFileName = packageName.replace('.docker.tar.gz', '').replace('_', ':');
+    await exec('set -o pipefail && gunzip ' + packageName + ' | docker load | grep "Loaded image" | cut -d" " -f 3 > loaded_repotag');
+    await exec('echo Confirming repo/tag in file consistent with repo/tag guessed from filename... && [ "$(cat loaded_repotag | cut -d/ -f 2)" == "' + repoTagGuessedFromFileName + '" ]');
 
-    console.log('- Push docker image ' + tag);
-    await exec('docker push ' + tag);
+    const newTag = dockerHost + '/' + thisOwner + '/' + thisRepo + '/' + repoTagGuessedFromFileName;
+
+    await exec('echo Will retag $(cat loaded_repotag) as ' + newTag + ' then push');
+    await exec('docker tag $(cat loaded_repotag) ' + newTag);
+    await exec('docker push ' + newTag);
 }
 
 (async () => {
@@ -120,6 +128,9 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         await setUpDocker(thisOwner, packagePushUser, packagePushToken);
 
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
+        for (p of existingPackages) {
+            console.log('Found existing package ' + p);
+        }
 
         var thresholdDate = new Date();
         thresholdDate.setHours(thresholdDate.getHours() - 24);
