@@ -142,7 +142,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                 core.setFailed('Failed to find workflow "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
                 continue;
             }
-            console.log('Found workflow with id ' + workflow.id + ' name ' + workflow.name + ' url ' + workflow.url);
+            console.log('Found workflow with id ' + workflow.id + ' name ' + workflow.name + ' url ' + workflow.html_url);
 
             console.log('Looking for runs of that workflow on branch ' + permittedBranch);
             const {data: {workflow_runs: workflowRuns}} = await octokit.actions.listWorkflowRuns({owner: sourceOwner, repo: sourceRepo, workflow_id: workflow.id, branch: permittedBranch});
@@ -150,7 +150,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             console.log('Found ' + workflowRuns.length + ' workflow run(s) in total. Of these, ' + recentWorkflowRuns.length + ' were updated after ' + thresholdDate.toISOString() + ', the rest will be ignored.')
 
             for (workflowRun of recentWorkflowRuns) {
-                console.log('Checking workflow run number ' + workflowRun.run_number + ' (url ' + workflowRun.url + ',  updated at ' + workflowRun.updated_at + ')');
+                console.log('Checking workflow run number ' + workflowRun.run_number + ' (url ' + workflowRun.html_url + ',  updated at ' + workflowRun.updated_at + ')');
                 const {data: {artifacts: artifacts}} = await octokit.actions.listWorkflowRunArtifacts({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 const {data: {jobs}} = await octokit.actions.listJobsForWorkflowRun({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 for (job of jobs) {
