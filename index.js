@@ -5,11 +5,13 @@ const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 
+const dockerHost = 'docker.pkg.github.com'
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function setUpNuget(thisOwner, packagePushToken) {
+async function setUpNuget(thisOwner, packagePushUser, packagePushToken) {
     await fs.writeFile('nuget.config', `<?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <packageSources>
@@ -18,11 +20,17 @@ async function setUpNuget(thisOwner, packagePushToken) {
     </packageSources>
     <packageSourceCredentials>
         <github>
-            <add key="Username" value="svc-gh-packagemanager" />
+            <add key="Username" value="${packagePushUser}" />
             <add key="ClearTextPassword" value="${packagePushToken}" />
         </github>
     </packageSourceCredentials>
 </configuration>`);
+}
+
+async function setUpDocker(thisOwner, packagePushUser, packagePushToken) {
+    const passwordFilename = 'docker.password'
+    await fs.writeFile(passwordFilename, packagePushToken);
+    await exec('cat ' + passwordFilename + ' | docker login ' + dockerHost + ' --username ' + packagePushUser + ' --password-stdin');
 }
 
 async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
@@ -46,8 +54,11 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
     var existingPackages = [];
     for (packageNode of packageNodes) {
         for (versionNode of packageNode.versions.nodes) {
+            console.log('Found existing package version ' + packageNode.name + ' ' + versionNode.version + ' with type ' + packageNode.packageType);
             if (packageNode.packageType == 'NUGET') {
                 existingPackages.push(packageNode.name + '.' + versionNode.version + '.nupkg');
+            } else if (packageNode.packageType == 'DOCKER') {
+                existingPackages.push(packageNode.name + '_' + versionNode.version + '.docker.tar.gz');
             }
         }
     }
@@ -86,23 +97,44 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     console.log('- Uploaded ' + packageName);
 }
 
+async function uploadDockerImage(thisOwner, thisRepo, packageName) {
+    console.log('- Uploading docker image from ' + packageName);
+
+    const repoTagGuessedFromFileName = packageName.replace('.docker.tar.gz', '').replace('_', ':');
+    await exec('zcat ' + packageName + ' | docker load > docker_load_output');
+    await exec('grep "Loaded image" docker_load_output | cut -d" " -f 3 > loaded_repotag');
+
+    // Artifact name needs to match naming convention. Otherwise we'd have to download artifacts to get the tag to tell if they'd already been uploaded as packages.
+    await exec('echo Confirming repo/tag in file $(cat loaded_repotag) consistent with repo/tag guessed from filename ' + repoTagGuessedFromFileName + ' && [ "$(cat loaded_repotag | cut -d/ -f 2)" = "' + repoTagGuessedFromFileName + '" ]');
+
+    const newTag = dockerHost + '/' + thisOwner + '/' + thisRepo + '/' + repoTagGuessedFromFileName;
+
+    await exec('echo Will retag $(cat loaded_repotag) as ' + newTag + ' then push');
+    await exec('docker tag $(cat loaded_repotag) ' + newTag);
+    await exec('docker push ' + newTag);
+}
+
 (async () => {
     try {
         const sourceOwner = core.getInput('source-owner');
         const sourceRepoWorkflowBranches = core.getInput('source-repo-workflow-branches').split(',').map(b => b.trim());
         const sourceToken = core.getInput('source-token');
+        const packagePushUser = core.getInput('package-push-user');
         const packagePushToken = core.getInput('package-push-token');
         const thisOwner = process.env['GITHUB_REPOSITORY'].split('/')[0];
         const thisRepo = process.env['GITHUB_REPOSITORY'].split('/')[1];
 
         const octokit = github.getOctokit(sourceToken);
 
-        await setUpNuget(thisOwner, packagePushToken);
+        console.log('Starting with parameters sourceOwner=' + sourceOwner + ' packagePushUser=' + packagePushUser + ' thisOwner/thisRepo=' + thisOwner + '/' + thisRepo)
+
+        await setUpNuget(thisOwner, packagePushUser, packagePushToken);
+        await setUpDocker(thisOwner, packagePushUser, packagePushToken);
 
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
 
         var thresholdDate = new Date();
-        thresholdDate.setHours(thresholdDate.getHours() - 1);
+        thresholdDate.setHours(thresholdDate.getHours() - 12);
 
         for (sourceRepoWorkflowBranch of sourceRepoWorkflowBranches) {
             const parts = sourceRepoWorkflowBranch.split('/');
@@ -116,20 +148,21 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
 
             console.log('Looking for workflows named "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
+
             const workflow = workflows.find(workflow => workflow.name == workflowName);
             if (!workflow) {
                 core.setFailed('Failed to find workflow "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
                 continue;
             }
-            console.log('Found workflow with id ' + workflow.id);
+            console.log('Found workflow with id ' + workflow.id + ' name ' + workflow.name + ' url ' + workflow.html_url);
 
-            console.log('Looking for runs of that workflow on branch ' + permittedBranch + ' updated after ' + thresholdDate.toISOString());
+            console.log('Looking for runs of that workflow on branch ' + permittedBranch);
             const {data: {workflow_runs: workflowRuns}} = await octokit.actions.listWorkflowRuns({owner: sourceOwner, repo: sourceRepo, workflow_id: workflow.id, branch: permittedBranch});
             const recentWorkflowRuns = workflowRuns.filter(workflowRun => new Date(workflowRun.updated_at).getTime() > thresholdDate.getTime());
-            console.log('Found ' + recentWorkflowRuns.length + ' workflow run(s)');
+            console.log('Found ' + workflowRuns.length + ' workflow run(s) in total. Of these, ' + recentWorkflowRuns.length + ' were updated after ' + thresholdDate.toISOString() + ', the rest will be ignored.');
 
             for (workflowRun of recentWorkflowRuns) {
-                console.log('Checking workflow run number ' + workflowRun.run_number + ' (updated at ' + workflowRun.updated_at + ')');
+                console.log('Checking workflow run number ' + workflowRun.run_number + ' (url ' + workflowRun.html_url + ',  updated at ' + workflowRun.updated_at + ')');
                 const {data: {artifacts: artifacts}} = await octokit.actions.listWorkflowRunArtifacts({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 const {data: {jobs}} = await octokit.actions.listJobsForWorkflowRun({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 for (job of jobs) {
@@ -164,9 +197,17 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
                             core.setFailed(package.name + '[' + package.sha + ']: No artifact with that name uploaded by workflow run');
                             continue;
                         }
+
+                        console.log('Downloading artifact ' + artifact.url + ' from ' + sourceOwner + '/' + sourceRepo);
                         const {data: artifactBytes} = await octokit.actions.downloadArtifact({owner: sourceOwner, repo: sourceRepo, artifact_id: artifact.id, archive_format: 'zip'});
+
+                        console.log('Writing to local file');
                         await fs.writeFile(package.name + '.zip', Buffer.from(artifactBytes));
-                        await exec('unzip ' + package.name + '.zip');
+
+                        console.log('Unzipping');
+                        await exec('unzip -o ' + package.name + '.zip');
+
+                        console.log('Confirming sha256');
                         const {stdout} = await exec('sha256sum ' + package.name);
                         const sha256 = stdout.slice(0, 64);
                         if (package.sha != sha256) {
@@ -177,8 +218,10 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
                         console.log(package.name + ' [' + package.sha + ']: Downloaded artifact, SHA256 matches, republishing:');
                         if (package.name.endsWith('.nupkg')) {
                             await uploadNugetPackage(thisOwner, thisRepo, package.name);
+                        } else if (package.name.endsWith('.docker.tar.gz')) {
+                            await uploadDockerImage(thisOwner, thisRepo, package.name);
                         } else {
-                            core.setFailed('Currently only Nuget packages are supported');
+                            core.setFailed('Package type not currently supported');
                         }
                     }
                 }
