@@ -137,6 +137,10 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             console.log('Looking for workflows named "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
 
+            for (w of workflows) {
+                console.log('Got back workflow with id ' + workflow.id + ' name ' + workflow.name + ' url ' + workflow.html_url);
+            }
+
             const workflow = workflows.find(workflow => workflow.name == workflowName);
             if (!workflow) {
                 core.setFailed('Failed to find workflow "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
