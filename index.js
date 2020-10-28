@@ -100,7 +100,8 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
     console.log('- Uploading docker image from ' + packageName);
 
     const repoTagGuessedFromFileName = packageName.replace('.docker.tar.gz', '').replace('_', ':');
-    await exec('set -o pipefail && gunzip ' + packageName + ' | docker load | grep "Loaded image" | cut -d" " -f 3 > loaded_repotag');
+    await exec('gunzip ' + packageName + ' | docker load > docker_load_output');
+    await exec('grep "Loaded image" docker_load_output | cut -d" " -f 3 > loaded_repotag');
     await exec('echo Confirming repo/tag in file consistent with repo/tag guessed from filename... && [ "$(cat loaded_repotag | cut -d/ -f 2)" == "' + repoTagGuessedFromFileName + '" ]');
 
     const newTag = dockerHost + '/' + thisOwner + '/' + thisRepo + '/' + repoTagGuessedFromFileName;
