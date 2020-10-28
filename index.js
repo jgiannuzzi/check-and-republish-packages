@@ -138,7 +138,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
 
             for (w of workflows) {
-                console.log('Got back workflow with id ' + workflow.id + ' name ' + workflow.name + ' url ' + workflow.html_url);
+                console.log('Got back workflow with id ' + w.id + ' name ' + w.name + ' url ' + w.html_url);
             }
 
             const workflow = workflows.find(workflow => workflow.name == workflowName);
