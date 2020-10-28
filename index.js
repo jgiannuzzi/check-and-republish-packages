@@ -134,7 +134,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         }
 
         var thresholdDate = new Date();
-        thresholdDate.setHours(thresholdDate.getHours() - 24);
+        thresholdDate.setHours(thresholdDate.getHours() - 12);
 
         for (sourceRepoWorkflowBranch of sourceRepoWorkflowBranches) {
             const parts = sourceRepoWorkflowBranch.split('/');
@@ -209,7 +209,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                         await fs.writeFile(package.name + '.zip', Buffer.from(artifactBytes));
 
                         console.log('Unzipping');
-                        await exec('unzip ' + package.name + '.zip');
+                        await exec('unzip -o ' + package.name + '.zip');
 
                         console.log('Confirming sha256');
                         const {stdout} = await exec('sha256sum ' + package.name);
