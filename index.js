@@ -54,7 +54,7 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
     var existingPackages = [];
     for (packageNode of packageNodes) {
         for (versionNode of packageNode.versions.nodes) {
-            console.log('Found existing package version ' + packageNode.name + ' ' + versionNode.name + ' with type ' + packageNode.packageType + ' at ' + versionNode.html_url);
+            console.log('Found existing package version ' + packageNode.name + ' ' + versionNode.version + ' with type ' + packageNode.packageType);
             if (packageNode.packageType == 'NUGET') {
                 existingPackages.push(packageNode.name + '.' + versionNode.version + '.nupkg');
             } else if (packageNode.packageType == 'DOCKER') {
@@ -130,9 +130,6 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         await setUpDocker(thisOwner, packagePushUser, packagePushToken);
 
         const existingPackages = await getExistingPackages(thisOwner, thisRepo, packagePushToken);
-        for (p of existingPackages) {
-            console.log('Found existing package ' + p);
-        }
 
         var thresholdDate = new Date();
         thresholdDate.setHours(thresholdDate.getHours() - 12);
@@ -149,10 +146,6 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
 
             console.log('Looking for workflows named "' + workflowName + '" in ' + sourceOwner + '/' + sourceRepo);
             const {data: {workflows}} = await octokit.actions.listRepoWorkflows({owner: sourceOwner, repo: sourceRepo});
-
-            for (w of workflows) {
-                console.log('Got back workflow with id ' + w.id + ' name ' + w.name + ' url ' + w.html_url);
-            }
 
             const workflow = workflows.find(workflow => workflow.name == workflowName);
             if (!workflow) {
