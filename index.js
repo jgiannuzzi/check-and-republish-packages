@@ -54,10 +54,11 @@ async function getExistingPackages(thisOwner, thisRepo, packagePushToken) {
     var existingPackages = [];
     for (packageNode of packageNodes) {
         for (versionNode of packageNode.versions.nodes) {
+            console.log('Found existing package version ' + packageNode.name + ' ' + versionNode.name + ' with type ' + packageNode.packageType + ' at ' + versionNode.html_url);
             if (packageNode.packageType == 'NUGET') {
                 existingPackages.push(packageNode.name + '.' + versionNode.version + '.nupkg');
-            } else {
-                existingPackages.push(packageNode.name);
+            } else if (packageNode.packageType == 'DOCKER') {
+                existingPackages.push(packageNode.name + '_' + versionNode.version + '.docker.tar.gz');
             }
         }
     }
@@ -163,7 +164,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             console.log('Looking for runs of that workflow on branch ' + permittedBranch);
             const {data: {workflow_runs: workflowRuns}} = await octokit.actions.listWorkflowRuns({owner: sourceOwner, repo: sourceRepo, workflow_id: workflow.id, branch: permittedBranch});
             const recentWorkflowRuns = workflowRuns.filter(workflowRun => new Date(workflowRun.updated_at).getTime() > thresholdDate.getTime());
-            console.log('Found ' + workflowRuns.length + ' workflow run(s) in total. Of these, ' + recentWorkflowRuns.length + ' were updated after ' + thresholdDate.toISOString() + ', the rest will be ignored.')
+            console.log('Found ' + workflowRuns.length + ' workflow run(s) in total. Of these, ' + recentWorkflowRuns.length + ' were updated after ' + thresholdDate.toISOString() + ', the rest will be ignored.');
 
             for (workflowRun of recentWorkflowRuns) {
                 console.log('Checking workflow run number ' + workflowRun.run_number + ' (url ' + workflowRun.html_url + ',  updated at ' + workflowRun.updated_at + ')');
