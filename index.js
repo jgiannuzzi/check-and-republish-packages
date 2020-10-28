@@ -107,12 +107,14 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
         const sourceOwner = core.getInput('source-owner');
         const sourceRepoWorkflowBranches = core.getInput('source-repo-workflow-branches').split(',').map(b => b.trim());
         const sourceToken = core.getInput('source-token');
-        const packagePushUser = core.getInput('package-push-user') || 'svc-gh-packagemanager';
+        const packagePushUser = core.getInput('package-push-user');
         const packagePushToken = core.getInput('package-push-token');
         const thisOwner = process.env['GITHUB_REPOSITORY'].split('/')[0];
         const thisRepo = process.env['GITHUB_REPOSITORY'].split('/')[1];
 
         const octokit = github.getOctokit(sourceToken);
+
+        console.log('Starting with parameters sourceOwner=' + sourceOwner + ' packagePushUser=' + packagePushUser + ' thisOwner/thisRepo=' + thisOwner + '/' + thisRepo)
 
         await setUpNuget(thisOwner, packagePushUser, packagePushToken);
         await setUpDocker(thisOwner, packagePushUser, packagePushToken);
@@ -146,14 +148,13 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
             }
             console.log('Found workflow with id ' + workflow.id + ' name ' + workflow.name);
 
-            console.log('Looking for runs of that workflow on branch ' + permittedBranch + ' updated after ' + thresholdDate.toISOString());
+            console.log('Looking for runs of that workflow on branch ' + permittedBranch);
             const {data: {workflow_runs: workflowRuns}} = await octokit.actions.listWorkflowRuns({owner: sourceOwner, repo: sourceRepo, workflow_id: workflow.id, branch: permittedBranch});
-            console.log('Found ' + workflowRuns.length + ' workflow run(s)');
             const recentWorkflowRuns = workflowRuns.filter(workflowRun => new Date(workflowRun.updated_at).getTime() > thresholdDate.getTime());
-            console.log('Found ' + recentWorkflowRuns.length + ' recent workflow run(s)');
+            console.log('Found ' + workflowRuns.length + ' workflow run(s) in total. Of these, ' + recentWorkflowRuns.length + ' were updated after ' + thresholdDate.toISOString() + ', the rest will be ignored.')
 
             for (workflowRun of recentWorkflowRuns) {
-                console.log('Checking workflow run number ' + workflowRun.run_number + ' (updated at ' + workflowRun.updated_at + ')');
+                console.log('Checking workflow run number ' + workflowRun.run_number + ' (url ' + workflowRun.url + ',  updated at ' + workflowRun.updated_at + ')');
                 const {data: {artifacts: artifacts}} = await octokit.actions.listWorkflowRunArtifacts({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 const {data: {jobs}} = await octokit.actions.listJobsForWorkflowRun({owner: sourceOwner, repo: sourceRepo, run_id: workflowRun.id});
                 for (job of jobs) {
