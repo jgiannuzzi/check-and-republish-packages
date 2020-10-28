@@ -201,9 +201,17 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                             core.setFailed(package.name + '[' + package.sha + ']: No artifact with that name uploaded by workflow run');
                             continue;
                         }
+
+                        console.log('Downloading artifact ' + artifact.url + ' from ' + sourceOwner + '/' + sourceRepo);
                         const {data: artifactBytes} = await octokit.actions.downloadArtifact({owner: sourceOwner, repo: sourceRepo, artifact_id: artifact.id, archive_format: 'zip'});
+
+                        console.log('Writing to local file');
                         await fs.writeFile(package.name + '.zip', Buffer.from(artifactBytes));
+
+                        console.log('Unzipping');
                         await exec('unzip ' + package.name + '.zip');
+
+                        console.log('Confirming sha256');
                         const {stdout} = await exec('sha256sum ' + package.name);
                         const sha256 = stdout.slice(0, 64);
                         if (package.sha != sha256) {
