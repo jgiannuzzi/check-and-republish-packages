@@ -107,7 +107,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
     // Artifact name needs to match naming convention. Otherwise we'd have to download artifacts to get the tag to tell if they'd already been uploaded as packages.
     await exec('echo Confirming repo/tag in file $(cat loaded_repotag) consistent with repo/tag guessed from filename ' + repoTagGuessedFromFileName + ' && [ "$(cat loaded_repotag | cut -d/ -f 2)" = "' + repoTagGuessedFromFileName + '" ]');
 
-    const newTag = dockerHost + '/' + thisOwner + '/' + thisRepo + '/' + repoTagGuessedFromFileName;
+    const newTag = (dockerHost + '/' + thisOwner + '/' + thisRepo + '/' + repoTagGuessedFromFileName).toLowerCase();
 
     await exec('echo Will retag $(cat loaded_repotag) as ' + newTag + ' then push');
     await exec('docker tag $(cat loaded_repotag) ' + newTag);
