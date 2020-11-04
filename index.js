@@ -5,7 +5,7 @@ const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 
-const dockerHost = 'ghcr.io'
+const dockerHost = 'docker.pkg.github.com'
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
