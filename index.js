@@ -4,6 +4,7 @@ const {graphql} = require('@octokit/graphql');
 const fs = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
+const streamPipeline = util.promisify(require('stream').pipeline);
 
 const dockerHost = 'docker.pkg.github.com'
 
@@ -202,7 +203,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                         const {data: artifactBytes} = await octokit.actions.downloadArtifact({owner: sourceOwner, repo: sourceRepo, artifact_id: artifact.id, archive_format: 'zip'});
 
                         console.log('Writing to local file');
-                        await fs.writeFile(package.name + '.zip', Buffer.from(artifactBytes));
+                        await streamPipeline(artifactBytes, fs.createWriteStream(package.name + '.zip'));
 
                         console.log('Unzipping');
                         await exec('unzip -o ' + package.name + '.zip');
