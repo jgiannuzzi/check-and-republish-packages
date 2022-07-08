@@ -213,7 +213,7 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                         await streamPipeline(downloadResponse.body, fs.createWriteStream(package.name + '.zip'));
 
                         console.log('Unzipping');
-                        await exec('unzip -o ' + package.name + '.zip');
+                        await exec('unzip -o ' + package.name + '.zip && rm -f ' + package.name + '.zip');
 
                         console.log('Confirming sha256');
                         const {stdout} = await exec('sha256sum ' + package.name);
