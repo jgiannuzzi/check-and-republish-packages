@@ -1,7 +1,8 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const {graphql} = require('@octokit/graphql');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsp = require('fs').promises;
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const streamPipeline = util.promisify(require('stream').pipeline);
@@ -13,7 +14,7 @@ function sleep(ms) {
 }
 
 async function setUpNuget(thisOwner, packagePushUser, packagePushToken) {
-    await fs.writeFile('nuget.config', `<?xml version="1.0" encoding="utf-8"?>
+    await fsp.writeFile('nuget.config', `<?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <packageSources>
         <clear />
@@ -30,7 +31,7 @@ async function setUpNuget(thisOwner, packagePushUser, packagePushToken) {
 
 async function setUpDocker(thisOwner, packagePushUser, packagePushToken) {
     const passwordFilename = 'docker.password'
-    await fs.writeFile(passwordFilename, packagePushToken);
+    await fsp.writeFile(passwordFilename, packagePushToken);
     await exec('cat ' + passwordFilename + ' | docker login ' + dockerHost + ' --username ' + packagePushUser + ' --password-stdin');
 }
 
@@ -71,7 +72,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     const extractedDir = packageName + '.extracted';
     await exec('unzip ' + packageName + ' -d ' + extractedDir);
 
-    const filesInPackage = await fs.readdir(extractedDir);
+    const filesInPackage = await fsp.readdir(extractedDir);
     const nuspecFilename = filesInPackage.find(filename => filename.endsWith('nuspec'));
     if (!nuspecFilename) {
         core.setFailed('Couldn\'t find .nuspec file in Nuget package');
@@ -80,7 +81,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
     
     console.log('- Updating ' + nuspecFilename + ' to reference this repository (required for GitHub package upload to succeed)');
     await exec('chmod 700 ' + extractedDir + '/' + nuspecFilename);
-    const lines = (await fs.readFile(extractedDir + '/' + nuspecFilename)).toString('utf-8').split('\n');
+    const lines = (await fsp.readFile(extractedDir + '/' + nuspecFilename)).toString('utf-8').split('\n');
     for (let i = 0; i < lines.length; i++) {
         const newLine = lines[i].replace(/repository url="[^"]*"/, 'repository url="https://github.com/' + thisOwner + '/' + thisRepo + '"');
         if (newLine != lines[i]) {
@@ -90,7 +91,7 @@ async function uploadNugetPackage(thisOwner, thisRepo, packageName) {
             console.log('- ' + lines[i]);
         }
     }
-    await fs.writeFile(extractedDir + '/' + nuspecFilename, lines.join('\n'));
+    await fsp.writeFile(extractedDir + '/' + nuspecFilename, lines.join('\n'));
     await exec('zip -j ' + packageName + ' ' + extractedDir + '/' + nuspecFilename);
 
     console.log('- Uploading NuGet package to https://github.com/' + thisOwner);
