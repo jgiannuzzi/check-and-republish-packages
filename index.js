@@ -1,6 +1,7 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const {graphql} = require('@octokit/graphql');
+const fetch = require('node-fetch');
 const fs = require('fs');
 const fsp = require('fs').promises;
 const util = require('util');
@@ -200,11 +201,16 @@ async function uploadDockerImage(thisOwner, thisRepo, packageName) {
                             continue;
                         }
 
-                        console.log('Downloading artifact ' + artifact.url + ' from ' + sourceOwner + '/' + sourceRepo);
-                        const {data: artifactBytes} = await octokit.actions.downloadArtifact({owner: sourceOwner, repo: sourceRepo, artifact_id: artifact.id, archive_format: 'zip'});
+                        console.log('Resolving download URL for artifact ' + artifact.id + ' from ' + sourceOwner + '/' + sourceRepo);
+                        const { headers: { location: artifactDownloadUrl } } = await octokit.request(artifact.url + '/zip', { request: { redirect: 'manual' } });
 
-                        console.log('Writing to local file');
-                        await streamPipeline(artifactBytes, fs.createWriteStream(package.name + '.zip'));
+                        console.log('Downloading artifact ' + artifact.id + ' from ' + sourceOwner + '/' + sourceRepo);
+                        const downloadResponse = await fetch(artifactDownloadUrl);
+                        if (!downloadResponse.ok) {
+                            core.setFailed('Unable to download artifact ' + artifact.id + ' from ' + sourceOwner + '/' + sourceRepo + ': Unexpected response ' + downloadResponse.statusText);
+                            continue;
+                        }
+                        await streamPipeline(downloadResponse.body, fs.createWriteStream(package.name + '.zip'));
 
                         console.log('Unzipping');
                         await exec('unzip -o ' + package.name + '.zip');
