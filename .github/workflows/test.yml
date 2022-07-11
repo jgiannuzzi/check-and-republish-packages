@@ -1,0 +1,15 @@
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jgiannuzzi/check-and-republish-packages@fix-download-size-limit
+        with:
+          source-owner: G-Research
+          source-repo-workflow-branches: dasos-builder/Release/main
+          source-token: ${{ secrets.SOURCE_TOKEN }}
+          package-push-token: ${{ secrets.PUSH_TOKEN }}
+          package-push-user: jgiannuzzi
